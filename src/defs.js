@@ -1,6 +1,5 @@
 
 export const DEFAULT_EEPROM_ADDRESS = 0x50
 
-
 export const DEFAULT_WRITE_PAGE_SIZE = 32
 export const DEFAULT_READ_PAGE_SIZE = 32

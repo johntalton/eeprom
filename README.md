@@ -22,7 +22,11 @@ Further each underlying `I2CBus` implementation also have a maximum transfer byt
 
 This library provides a way to abstract a single `read`/`write` requests to satisfy those requirements, by spanning over multiple `read`/`write` calls.
 
-Most EEPROM also require that page writes end be aligned to a end boundary, thus writes that cross over page boundries will also be chunked (even if the total bytes does not exceed a page size)
+Most EEPROM also require that page writes end be aligned to a end boundary, thus writes that cross over page boundaries will also be chunked (even if the total bytes does not exceed a page size)
+
+# Addressing
+
+EEPROM in most cases have 16-bit addressing.  This library assume as much as splits the address into [ MSB, LSB ] and passes to the `I2CBus` (not all implementation can handle multi-byte addressing).
 
 # Example
 

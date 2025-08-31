@@ -4,24 +4,30 @@ import { range, split16 } from './util.js'
 /**
  * @import {
  * I2CAddressedBus,
- * I2CAddressedTransactionBus,
  * I2CBufferSource
  * } from '@johntalton/and-other-delights'
  */
 
+/**
+ * @typedef {Object} EEPROMOptions
+ * @property {number} [readPageSize = DEFAULT_READ_PAGE_SIZE]
+ * @property {number} [writePageSize = DEFAULT_WRITE_PAGE_SIZE]
+ */
+
 export class Common {
 	/**
+	 * @param {I2CAddressedBus} bus
 	 * @param {number} address
 	 * @param {number} length
-	 * @param {I2CAddressedBus} bus
+	 * @param {I2CBufferSource} [into]
 	 * */
-	static async read(bus, address, length, into) {
+	static async read(bus, address, length, into = undefined) {
 		return bus.readI2cBlock(split16(address), length, into)
 	}
 
 	/**
-	 * @param {number} address
 	 * @param {I2CAddressedBus} bus
+	 * @param {number} address
 	 * @param {I2CBufferSource} buffer
 	*/
 	static async write(bus, address, buffer) {
@@ -29,29 +35,36 @@ export class Common {
 	}
 }
 
-
 export class EEPROM {
 	#abus
 	#writePageSize
 	#readPageSize
 
-	/** @param {I2CAddressedTransactionBus} abus  */
-	static from(abus, options) { return new EEPROM(abus, options) }
+	/**
+	 * @param {I2CAddressedBus} abus
+	 * @param {EEPROMOptions} [options]
+	 */
+	static from(abus, options = undefined) { return new EEPROM(abus, options) }
 
-	/** @param {I2CAddressedTransactionBus} abus  */
-	constructor(abus, options) {
-		this.#writePageSize = options?.pageSize ?? DEFAULT_WRITE_PAGE_SIZE
+	/**
+	 * @param {I2CAddressedBus} abus
+	 * @param {EEPROMOptions} [options]
+	 */
+	constructor(abus, options = undefined) {
+		this.#writePageSize = options?.writePageSize ?? DEFAULT_WRITE_PAGE_SIZE
 		this.#readPageSize = options?.readPageSize ?? DEFAULT_READ_PAGE_SIZE
 		this.#abus = abus
 	}
 
-	get pageSize() { return this.#writePageSize }
-	set pageSize(size) { this.#writePageSize = size }
+	get writePageSize() { return this.#writePageSize }
+	set writePageSize(size) { this.#writePageSize = size }
+
+	get readPageSize() { return this.#readPageSize }
 
 	/**
 	 * @param {number} address
 	 * @param {number} length
-	 * @param {I2CBufferSource} [into=undefined]
+	 * @param {I2CBufferSource} [into = undefined]
 	 * @returns {Promise<I2CBufferSource>}
 	 * */
 	async read(address, length, into = undefined) {
@@ -65,6 +78,8 @@ export class EEPROM {
 
 			return Common.read(this.#abus, pageAddress, remainingLength, pageInto)
 		}))
+
+		if(into !== undefined) { return into }
 
 		const blob = new Blob(parts)
 		return blob.arrayBuffer()
