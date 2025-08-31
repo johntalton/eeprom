@@ -1,20 +1,13 @@
-
-
-/**
- * @import { I2CAddress } from '@johntalton/and-other-delights
- */
-
-const SINGLE_BYTE_MASK = 0xff
+import { DEFAULT_READ_PAGE_SIZE, DEFAULT_WRITE_PAGE_SIZE } from './defs.js'
+import { range, split16 } from './util.js'
 
 /**
- * @returns {[ number, number ]}
+ * @import {
+ * I2CAddressedBus,
+ * I2CAddressedTransactionBus,
+ * I2CBufferSource
+ * } from '@johntalton/and-other-delights'
  */
-export function split16(reg16) {
-	return [
-		(reg16 >> 8) & SINGLE_BYTE_MASK,
-		reg16 & SINGLE_BYTE_MASK
-	]
-}
 
 export class Common {
 	/**
@@ -29,17 +22,13 @@ export class Common {
 	/**
 	 * @param {number} address
 	 * @param {I2CAddressedBus} bus
-	 * @param {ArrayBufferLike|ArrayBufferView} buffer
+	 * @param {I2CBufferSource} buffer
 	*/
 	static async write(bus, address, buffer) {
-		// console.log('---- common write', address, buffer.byteLength, buffer)
 		return bus.writeI2cBlock(split16(address), buffer)
 	}
 }
 
-
-export const DEFAULT_WRITE_PAGE_SIZE = 32
-export const DEFAULT_READ_PAGE_SIZE = 32
 
 export class EEPROM {
 	#abus
@@ -62,34 +51,31 @@ export class EEPROM {
 	/**
 	 * @param {number} address
 	 * @param {number} length
-	 * @param {ArrayBufferLike|ArrayBufferView} [into=undefined]
-	 * @returns {Promise<ArrayBufferLike|ArrayBufferView>}
+	 * @param {I2CBufferSource} [into=undefined]
+	 * @returns {Promise<I2CBufferSource>}
 	 * */
 	async read(address, length, into = undefined) {
-		// console.log('read transaction')
-		// return this.#abus.transaction(async atbus => {
-			// console.log('reading', address, length)
-			const parts = await Promise.all(range(0, length - 1, this.#readPageSize).map(async page => {
-				const pageAddress = address + page
+		const parts = await Promise.all(range(0, length - 1, this.#readPageSize).map(async page => {
+			const pageAddress = address + page
+			const remainingLength = Math.min(page + this.#readPageSize, length - page)
 
-				const remainingLength = Math.min(page + this.#readPageSize, length - page)
+			const pageInto = (into === undefined) ? undefined : (ArrayBuffer.isView(into) ?
+				new Uint8Array(into.buffer, into.byteOffset + page, remainingLength) :
+				new Uint8Array(into, page, remainingLength))
 
-				// console.log('read page', page, pageAddress, this.#readPageSize, remainingLength)
-				const pageInto = (into === undefined) ? undefined : (ArrayBuffer.isView(into) ?
-					new Uint8Array(into.buffer, into.byteOffset + page, remainingLength) :
-					new Uint8Array(into, page, remainingLength))
+			return Common.read(this.#abus, pageAddress, remainingLength, pageInto)
+		}))
 
-				return await Common.read(this.#abus, pageAddress, remainingLength, pageInto)
-			}))
-
-			const blob = new Blob(parts)
-			return blob.arrayBuffer()
-		// })
+		const blob = new Blob(parts)
+		return blob.arrayBuffer()
 	}
 
-	/** @param {ArrayBufferLike|ArrayBufferView} source  */
+	/**
+	 * @param {number} address
+	 * @param {I2CBufferSource} source
+	 * @returns {Promise<void>}
+	 */
 	async write(address, source) {
-		// console.log('writing to address', address, source.byteLength)
 		const u8 = ArrayBuffer.isView(source) ?
 			new Uint8Array(source.buffer, source.byteOffset, source.byteLength) :
 			new Uint8Array(source, 0, source.byteLength)
@@ -109,7 +95,6 @@ export class EEPROM {
 			const buffer = u8.subarray(page, pageEnd)
 			const pageAddress = address + page
 
-			// console.log('write page', page, pageAddress, buffer.byteLength, buffer)
 			await Common.write(this.#abus, pageAddress, buffer)
 		}
 	}
