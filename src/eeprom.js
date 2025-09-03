@@ -70,7 +70,7 @@ export class EEPROM {
 	async read(address, length, into = undefined) {
 		const parts = await Promise.all(range(0, length - 1, this.#readPageSize).map(async page => {
 			const pageAddress = address + page
-			const remainingLength = Math.min(page + this.#readPageSize, length - page)
+			const remainingLength = Math.min(this.#readPageSize, address + length - pageAddress)
 
 			const pageInto = (into === undefined) ? undefined : (ArrayBuffer.isView(into) ?
 				new Uint8Array(into.buffer, into.byteOffset + page, remainingLength) :
