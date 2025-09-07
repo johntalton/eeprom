@@ -22,6 +22,8 @@ export class Common {
 	 * @param {I2CBufferSource} [into]
 	 * */
 	static async read(bus, address, length, into = undefined) {
+		if(length <= 0) { throw new Error('invalid read length') }
+		if(into !== undefined && into.byteLength < length) { throw new Error('invalid buffer length') }
 		return bus.readI2cBlock(split16(address), length, into)
 	}
 
@@ -68,21 +70,31 @@ export class EEPROM {
 	 * @returns {Promise<I2CBufferSource>}
 	 * */
 	async read(address, length, into = undefined) {
-		const parts = await Promise.all(range(0, length - 1, this.#readPageSize).map(async page => {
-			const pageAddress = address + page
-			const remainingLength = Math.min(this.#readPageSize, address + length - pageAddress)
 
-			const pageInto = (into === undefined) ? undefined : (ArrayBuffer.isView(into) ?
-				new Uint8Array(into.buffer, into.byteOffset + page, remainingLength) :
-				new Uint8Array(into, page, remainingLength))
+		const initialBuffer = into ?? new ArrayBuffer(length)
 
-			return Common.read(this.#abus, pageAddress, remainingLength, pageInto)
-		}))
+		const futurePartFn = range(0, length - 1, this.#readPageSize).map(page => {
+			return async targetBuffer => {
+				const pageAddress = address + page
+				const remainingLength = Math.min(this.#readPageSize, address + length - pageAddress)
 
-		if(into !== undefined) { return into }
+				const pageInto = ArrayBuffer.isView(targetBuffer) ?
+					new Uint8Array(targetBuffer.buffer, targetBuffer.byteOffset + page, remainingLength) :
+					new Uint8Array(targetBuffer, page, remainingLength)
 
-		const blob = new Blob(parts)
-		return blob.arrayBuffer()
+				if(pageInto !== undefined && pageInto.buffer.detached) { throw new Error('detached') }
+
+				const readResult = await Common.read(this.#abus, pageAddress, remainingLength, pageInto)
+				return ArrayBuffer.isView(readResult) ? readResult.buffer : readResult
+
+			}
+		})
+
+		const resultBuffer = await futurePartFn.reduce((acc, next) => {
+			return acc.then(previousBuffer => next(previousBuffer))
+		}, Promise.resolve(initialBuffer))
+
+		return ArrayBuffer.isView(resultBuffer) ? resultBuffer.buffer : resultBuffer
 	}
 
 	/**

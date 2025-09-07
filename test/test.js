@@ -12,6 +12,7 @@ const mockbus = () => ({
 	async readI2cBlock(address, cmd, length, target) {
 		this.readList.push({ cmd, length, hasTarget: target !== undefined })
 
+		if(length === 0) { throw new Error('invalid length') }
 		const buffer = target === undefined ? new ArrayBuffer(length) : target
 
 		return {
