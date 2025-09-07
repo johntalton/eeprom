@@ -13,7 +13,7 @@ const mockbus = () => ({
 		this.readList.push({ cmd, length, hasTarget: target !== undefined })
 
 		if(length === 0) { throw new Error('invalid length') }
-		const buffer = target === undefined ? new ArrayBuffer(length) : target
+		const buffer = target === undefined ? new ArrayBuffer(length) : (ArrayBuffer.isView(target) ? target.buffer.transfer() : target.transfer())
 
 		return {
 			bytesRead: length,
@@ -109,8 +109,8 @@ describe('EEPROM', () => {
 			const target = new Uint32Array(5)
 			const result = await device.read(30, 10, target)
 
-			assert.equal(result, target)
-
+			assert.equal(target.buffer.detached, true)
+			assert.equal(result.byteLength, 5 * 4)
 		})
 
 		it('should support target ArrayBuffer', async () => {
@@ -121,20 +121,20 @@ describe('EEPROM', () => {
 			const target = new ArrayBuffer(10)
 			const result = await device.read(30, 10, target)
 
-			assert.equal(result, target)
-
+			assert.equal(target.detached, true)
+			assert.equal(result.byteLength, 10)
 		})
 
-
-		it('should read 32kbit device sans 6 bytes', () => {
+		it('should read 32kbit device sans 6 bytes', async () => {
 			const bus = mockbus()
 			const abus = new I2CAddressedBus(bus, 0x00)
 			const device = new EEPROM(abus, { readPageSize: 32, writePageSize: 32 })
 
-			const buffer = device.read(0, 4090)
+			const buffer = await device.read(0, 4090)
+
+			assert.equal(buffer.byteLength, 4090)
 
 			assert.equal(bus.readList.length, 128)
-
 			assert.deepEqual(bus.readList[127].cmd, split16(4064))
 			assert.equal(bus.readList[127].length, 26)
 		})
