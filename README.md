@@ -1,10 +1,12 @@
 # EEPROM
+
+Generic EEPROM abstraction over [`I2CBus`](https://github.com/johntalton/and-other-delights) interface.
+
+
 [![npm Version](http://img.shields.io/npm/v/@johntalton/eeprom.svg)](https://www.npmjs.com/package/@johntalton/eeprom)
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/johntalton/eeprom)
 ![CI](https://github.com/johntalton/eeprom/workflows/CI/badge.svg)
 ![GitHub](https://img.shields.io/github/license/johntalton/eeprom)
-
-Generic EEPROM abstraction over [`I2CBus`](https://github.com/johntalton/and-other-delights) abstraction.
 
 # File Systems
 
